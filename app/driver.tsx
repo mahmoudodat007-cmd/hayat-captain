@@ -58,15 +58,25 @@ export default function Driver() {
     );
 
     const ridesRef = collection(db, 'rideRequests');
+    const ridesMap = new Map<string, Ride>();
 
-    const unsubscribe = onSnapshot(
+    const updateRides = () => {
+      setRides(Array.from(ridesMap.values()));
+    };
+
+    const unsubscribePending = onSnapshot(
       query(ridesRef, where('status', '==', 'pending')),
       (snapshot: any) => {
-        const list: Ride[] = snapshot.docs.map((item: any) => {
-          const data = item.data();
+        snapshot.docChanges().forEach((change: any) => {
+          const data = change.doc.data();
 
-          return {
-            id: item.id,
+          if (change.type === 'removed') {
+            ridesMap.delete(change.doc.id);
+            return;
+          }
+
+          ridesMap.set(change.doc.id, {
+            id: change.doc.id,
             pickupArea: data.pickupArea || 'غير محدد',
             destination: data.destination || 'غير محدد',
             fareEstimate:
@@ -74,19 +84,50 @@ export default function Driver() {
                 ? data.fareEstimate
                 : 1,
             status: data.status || 'pending',
-          };
+          });
         });
 
-        setRides(list);
+        updateRides();
       },
       (error: any) => {
-        console.log('rideRequests error:', error);
+        console.log('pending rides error:', error);
+      }
+    );
+
+    const unsubscribeMyRides = onSnapshot(
+      query(ridesRef, where('driverId', '==', user.uid)),
+      (snapshot: any) => {
+        snapshot.docChanges().forEach((change: any) => {
+          const data = change.doc.data();
+
+          if (change.type === 'removed') {
+            ridesMap.delete(change.doc.id);
+            return;
+          }
+
+          ridesMap.set(change.doc.id, {
+            id: change.doc.id,
+            pickupArea: data.pickupArea || 'غير محدد',
+            destination: data.destination || 'غير محدد',
+            fareEstimate:
+              typeof data.fareEstimate === 'number'
+                ? data.fareEstimate
+                : 1,
+            status: data.status || 'pending',
+          });
+        });
+
+        updateRides();
+      },
+      (error: any) => {
+        console.log('my rides error:', error);
       }
     );
 
     return () => {
-      unsubscribe();
       unsubscribeDriver();
+      unsubscribePending();
+      unsubscribeMyRides();
     };
   }, []);
 
