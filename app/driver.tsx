@@ -13,6 +13,7 @@ import {
   collection,
   onSnapshot,
   doc,
+  getDoc,
   updateDoc,
   setDoc,
   runTransaction,
@@ -113,6 +114,33 @@ export default function Driver() {
       }
 
       const db = getFirestore();
+      const driverRef = doc(db, 'drivers', user.uid);
+      const driverSnapshot = await getDoc(driverRef);
+
+      if (!driverSnapshot.exists()) {
+        Alert.alert('حياة كابتن', 'أكمل بيانات الكابتن والسيارة أولاً');
+        router.push('/account');
+        return;
+      }
+
+      const driverData = driverSnapshot.data();
+
+      if (
+        !driverData?.name ||
+        !driverData?.phone ||
+        !driverData?.carType ||
+        !driverData?.carModel ||
+        !driverData?.carColor ||
+        !driverData?.plateNumber
+      ) {
+        Alert.alert(
+          'حياة كابتن',
+          'يجب إكمال بيانات الكابتن والسيارة قبل قبول الرحلة'
+        );
+        router.push('/account');
+        return;
+      }
+
       const rideRef = doc(db, 'rideRequests', ride.id);
 
       await runTransaction(db, async (transaction: any) => {
