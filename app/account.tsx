@@ -83,7 +83,6 @@ export default function Account() {
           carModel: carModel.trim(),
           carColor: carColor.trim(),
           plateNumber: plateNumber.trim(),
-          approvalStatus: 'pending',
           updatedAt: new Date(),
         },
         { merge: true }
