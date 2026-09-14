@@ -21,6 +21,7 @@ type Ride = {
   pickupArea?: string;
   destination?: string;
   fareEstimate?: number;
+  finalFare?: number;
   status?: string;
   completedAt?: any;
 };
@@ -81,7 +82,7 @@ export default function History() {
       </Text>
 
       <Text style={styles.fare}>
-        💰 الأجرة: {item.fareEstimate ?? 0} دينار
+        💰 الأجرة النهائية: {item.finalFare ?? item.fareEstimate ?? 0} دينار
       </Text>
     </View>
   );
