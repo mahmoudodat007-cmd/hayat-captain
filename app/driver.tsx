@@ -128,10 +128,21 @@ export default function Driver() {
           throw new Error('هذه الرحلة تم قبولها من كابتن آخر');
         }
 
+        const driverRef = doc(db, 'drivers', user.uid);
+        const driverSnapshot = await transaction.get(driverRef);
+        const driverData = driverSnapshot.exists()
+          ? driverSnapshot.data()
+          : {};
+
         transaction.update(rideRef, {
           status: 'accepted',
           driverId: user.uid,
-          driverName: user.email || 'كابتن حياة',
+          driverName: driverData?.name || user.email || 'كابتن حياة',
+          driverPhone: driverData?.phone || '',
+          carType: driverData?.carType || '',
+          carModel: driverData?.carModel || '',
+          carColor: driverData?.carColor || '',
+          plateNumber: driverData?.plateNumber || '',
           acceptedAt: new Date(),
         });
       });
