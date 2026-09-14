@@ -335,11 +335,35 @@ export default function Driver() {
                     await updateDoc(
                       doc(getFirestore(), 'rideRequests', ride.id),
                       {
+                        status: 'arriving',
+                        arrivingAt: new Date(),
+                      }
+                    );
+                    Alert.alert('حياة كابتن', 'الكابتن بالطريق');
+                  } catch (error: any) {
+                    Alert.alert(
+                      'حياة كابتن',
+                      error?.message || 'تعذر تحديث حالة الرحلة'
+                    );
+                  }
+                }}
+              >
+                <Text style={styles.acceptText}>🚗 أنا بالطريق</Text>
+              </Pressable>
+            )}
+
+            {ride.status === 'arriving' && (
+              <Pressable
+                style={styles.acceptButton}
+                onPress={async () => {
+                  try {
+                    await updateDoc(
+                      doc(getFirestore(), 'rideRequests', ride.id),
+                      {
                         status: 'started',
                         startedAt: new Date(),
                       }
                     );
-
                     Alert.alert('حياة كابتن', 'بدأت الرحلة');
                   } catch (error: any) {
                     Alert.alert(
@@ -349,7 +373,7 @@ export default function Driver() {
                   }
                 }}
               >
-                <Text style={styles.acceptText}>بدء الرحلة</Text>
+                <Text style={styles.acceptText}>▶️ بدء الرحلة</Text>
               </Pressable>
             )}
 
