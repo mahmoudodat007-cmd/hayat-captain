@@ -27,6 +27,8 @@ type Ride = {
   pickupArea: string;
   destination: string;
   fareEstimate: number;
+  finalFare?: number;
+  completedAt?: any;
   status: string;
   driverId?: string;
 };
@@ -47,6 +49,54 @@ export default function Driver() {
     }
 
     const db = getFirestore();
+
+    const unsubscribeTodayStats = onSnapshot(
+      query(
+        collection(db, 'rideRequests'),
+        where('driverId', '==', user.uid),
+        where('status', '==', 'completed')
+      ),
+      (snapshot: any) => {
+        let count = 0;
+        let total = 0;
+
+        const now = new Date();
+        const startOfDay = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+
+        snapshot.forEach((docSnapshot: any) => {
+          const data = docSnapshot.data();
+
+          const completedAt = data.completedAt?.toDate
+            ? data.completedAt.toDate()
+            : data.completedAt
+              ? new Date(data.completedAt)
+              : null;
+
+          if (completedAt && completedAt >= startOfDay) {
+            count += 1;
+
+            const fare =
+              typeof data.finalFare === 'number'
+                ? data.finalFare
+                : typeof data.fareEstimate === 'number'
+                  ? data.fareEstimate
+                  : 0;
+
+            total += fare;
+          }
+        });
+
+        setCompletedToday(count);
+        setTotalToday(total);
+      },
+      (error: any) => {
+        console.log('today stats error:', error);
+      }
+    );
 
     const unsubscribeDriver = onSnapshot(
       doc(db, 'drivers', user.uid),
@@ -83,7 +133,13 @@ export default function Driver() {
               typeof data.fareEstimate === 'number'
                 ? data.fareEstimate
                 : 1,
+            finalFare:
+              typeof data.finalFare === 'number'
+                ? data.finalFare
+                : undefined,
+            completedAt: data.completedAt,
             status: data.status || 'pending',
+            driverId: data.driverId,
           });
         });
 
@@ -113,7 +169,13 @@ export default function Driver() {
               typeof data.fareEstimate === 'number'
                 ? data.fareEstimate
                 : 1,
+            finalFare:
+              typeof data.finalFare === 'number'
+                ? data.finalFare
+                : undefined,
+            completedAt: data.completedAt,
             status: data.status || 'pending',
+            driverId: data.driverId,
           });
         });
 
@@ -126,6 +188,7 @@ export default function Driver() {
 
     return () => {
       unsubscribeDriver();
+      unsubscribeTodayStats();
       unsubscribePending();
       unsubscribeMyRides();
     };
@@ -292,128 +355,165 @@ export default function Driver() {
 
         {!online && (
           <Text style={styles.empty}>
-            فعّل حالة "أنا متاح" لاستقبال الرحلات
+            فعّل حالة "أنا متاح" لاستقبال الرحلات الجديدة
           </Text>
         )}
 
-        {online && rides.length === 0 && (
+        {online &&
+          rides.filter((ride) => ride.status === 'pending').length === 0 && (
+            <Text style={styles.empty}>
+              لا توجد رحلات جديدة حاليًا
+            </Text>
+          )}
+
+        {online &&
+          rides
+            .filter((ride) => ride.status === 'pending')
+            .map((ride) => (
+              <View key={ride.id} style={styles.ride}>
+                <Text style={styles.rideTitle}>طلب رحلة جديد</Text>
+
+                <Text style={styles.info}>
+                  📍 الانطلاق: {ride.pickupArea}
+                </Text>
+
+                <Text style={styles.info}>
+                  🎯 الوجهة: {ride.destination}
+                </Text>
+
+                <Text style={styles.fare}>
+                  💰 الأجرة: {ride.fareEstimate.toFixed(2)} د.أ
+                </Text>
+
+                <Pressable
+                  style={styles.acceptButton}
+                  onPress={() => acceptRide(ride)}
+                >
+                  <Text style={styles.acceptText}>قبول الرحلة</Text>
+                </Pressable>
+              </View>
+            ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>🚗 الرحلة الحالية</Text>
+
+        {rides.filter((ride) =>
+          ['accepted', 'arriving', 'started'].includes(ride.status)
+        ).length === 0 && (
           <Text style={styles.empty}>
-            لا توجد رحلات جديدة حاليًا
+            لا توجد رحلة قيد التنفيذ حاليًا
           </Text>
         )}
 
-        {online && rides.map((ride) => (
-          <View key={ride.id} style={styles.ride}>
-            <Text style={styles.rideTitle}>طلب رحلة جديد</Text>
+        {rides
+          .filter((ride) =>
+            ['accepted', 'arriving', 'started'].includes(ride.status)
+          )
+          .map((ride) => (
+            <View key={ride.id} style={styles.ride}>
+              <Text style={styles.rideTitle}>رحلة قيد التنفيذ</Text>
 
-            <Text style={styles.info}>
-              📍 الانطلاق: {ride.pickupArea}
-            </Text>
+              <Text style={styles.info}>
+                📍 الانطلاق: {ride.pickupArea}
+              </Text>
 
-            <Text style={styles.info}>
-              🎯 الوجهة: {ride.destination}
-            </Text>
+              <Text style={styles.info}>
+                🎯 الوجهة: {ride.destination}
+              </Text>
 
-            <Text style={styles.fare}>
-              💰 الأجرة: {ride.fareEstimate.toFixed(2)} د.أ
-            </Text>
+              <Text style={styles.fare}>
+                💰 الأجرة: {ride.fareEstimate.toFixed(2)} د.أ
+              </Text>
 
-            {ride.status === 'pending' && (
-              <Pressable
-                style={styles.acceptButton}
-                onPress={() => acceptRide(ride)}
-              >
-                <Text style={styles.acceptText}>قبول الرحلة</Text>
-              </Pressable>
-            )}
+              {ride.status === 'accepted' && (
+                <Pressable
+                  style={styles.acceptButton}
+                  onPress={async () => {
+                    try {
+                      await updateDoc(
+                        doc(getFirestore(), 'rideRequests', ride.id),
+                        {
+                          status: 'arriving',
+                          arrivingAt: new Date(),
+                        }
+                      );
 
-            {ride.status === 'accepted' && (
-              <Pressable
-                style={styles.acceptButton}
-                onPress={async () => {
-                  try {
-                    await updateDoc(
-                      doc(getFirestore(), 'rideRequests', ride.id),
-                      {
-                        status: 'arriving',
-                        arrivingAt: new Date(),
-                      }
-                    );
-                    Alert.alert('حياة كابتن', 'الكابتن بالطريق');
-                  } catch (error: any) {
-                    Alert.alert(
-                      'حياة كابتن',
-                      error?.message || 'تعذر تحديث حالة الرحلة'
-                    );
-                  }
-                }}
-              >
-                <Text style={styles.acceptText}>🚗 أنا بالطريق</Text>
-              </Pressable>
-            )}
+                      Alert.alert('حياة كابتن', 'الكابتن بالطريق');
+                    } catch (error: any) {
+                      Alert.alert(
+                        'حياة كابتن',
+                        error?.message || 'تعذر تحديث حالة الرحلة'
+                      );
+                    }
+                  }}
+                >
+                  <Text style={styles.acceptText}>🚗 أنا بالطريق</Text>
+                </Pressable>
+              )}
 
-            {ride.status === 'arriving' && (
-              <Pressable
-                style={styles.acceptButton}
-                onPress={async () => {
-                  try {
-                    await updateDoc(
-                      doc(getFirestore(), 'rideRequests', ride.id),
-                      {
-                        status: 'started',
-                        startedAt: new Date(),
-                      }
-                    );
-                    Alert.alert('حياة كابتن', 'بدأت الرحلة');
-                  } catch (error: any) {
-                    Alert.alert(
-                      'حياة كابتن',
-                      error?.message || 'تعذر بدء الرحلة'
-                    );
-                  }
-                }}
-              >
-                <Text style={styles.acceptText}>▶️ بدء الرحلة</Text>
-              </Pressable>
-            )}
+              {ride.status === 'arriving' && (
+                <Pressable
+                  style={styles.acceptButton}
+                  onPress={async () => {
+                    try {
+                      await updateDoc(
+                        doc(getFirestore(), 'rideRequests', ride.id),
+                        {
+                          status: 'started',
+                          startedAt: new Date(),
+                        }
+                      );
 
-            {ride.status === 'started' && (
-              <Pressable
-                style={styles.acceptButton}
-                onPress={async () => {
-                  try {
-                    const db = getFirestore();
-                    const rideRef = doc(db, 'rideRequests', ride.id);
+                      Alert.alert('حياة كابتن', 'بدأت الرحلة');
+                    } catch (error: any) {
+                      Alert.alert(
+                        'حياة كابتن',
+                        error?.message || 'تعذر بدء الرحلة'
+                      );
+                    }
+                  }}
+                >
+                  <Text style={styles.acceptText}>▶️ بدء الرحلة</Text>
+                </Pressable>
+              )}
 
-                    await updateDoc(rideRef, {
-                      status: 'completed',
-                      completedAt: new Date(),
-                      finalFare: ride.fareEstimate,
-                    });
+              {ride.status === 'started' && (
+                <Pressable
+                  style={styles.acceptButton}
+                  onPress={async () => {
+                    try {
+                      const db = getFirestore();
+                      const rideRef = doc(db, 'rideRequests', ride.id);
 
-                    setCompletedToday((value) => value + 1);
-                    setTotalToday(
-                      (value) => value + ride.fareEstimate
-                    );
+                      await updateDoc(rideRef, {
+                        status: 'completed',
+                        completedAt: new Date(),
+                        finalFare: ride.fareEstimate,
+                      });
 
-                    Alert.alert(
-                      'حياة كابتن',
-                      `تم إنهاء الرحلة
-الأجرة: ${ride.fareEstimate.toFixed(2)} د.أ`
-                    );
-                  } catch (error: any) {
-                    Alert.alert(
-                      'حياة كابتن',
-                      error?.message || 'تعذر إنهاء الرحلة'
-                    );
-                  }
-                }}
-              >
-                <Text style={styles.acceptText}>🏁 إنهاء الرحلة</Text>
-              </Pressable>
-            )}
-          </View>
-        ))}
+                      setCompletedToday((value) => value + 1);
+                      setTotalToday(
+                        (value) => value + ride.fareEstimate
+                      );
+
+                      Alert.alert(
+                        'حياة كابتن',
+                        `تم إنهاء الرحلة\nالأجرة: ${ride.fareEstimate.toFixed(2)} د.أ`
+                      );
+                    } catch (error: any) {
+                      Alert.alert(
+                        'حياة كابتن',
+                        error?.message || 'تعذر إنهاء الرحلة'
+                      );
+                    }
+                  }}
+                >
+                  <Text style={styles.acceptText}>🏁 إنهاء الرحلة</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
       </View>
 
       <View style={styles.section}>
