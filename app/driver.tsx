@@ -11,6 +11,8 @@ import { getAuth, signOut } from '@react-native-firebase/auth';
 import {
   getFirestore,
   collection,
+  query,
+  where,
   onSnapshot,
   doc,
   getDoc,
@@ -34,6 +36,7 @@ export default function Driver() {
   const [rides, setRides] = useState<Ride[]>([]);
   const [completedToday, setCompletedToday] = useState(0);
   const [totalToday, setTotalToday] = useState(0);
+  const [approvalStatus, setApprovalStatus] = useState('pending');
 
   useEffect(() => {
     const user = getAuth().currentUser;
@@ -43,11 +46,22 @@ export default function Driver() {
       return;
     }
 
-    const ridesRef = collection(getFirestore(), 'rideRequests');
+    const db = getFirestore();
+
+    const unsubscribeDriver = onSnapshot(
+      doc(db, 'drivers', user.uid),
+      (snapshot) => {
+        const data = snapshot.data();
+        setApprovalStatus(data?.approvalStatus || 'pending');
+        setOnline(data?.online === true);
+      }
+    );
+
+    const ridesRef = collection(db, 'rideRequests');
 
     const unsubscribe = onSnapshot(
-      ridesRef,
-      (snapshot) => {
+      query(ridesRef, where('status', '==', 'pending')),
+      (snapshot: any) => {
         const list: Ride[] = snapshot.docs.map((item: any) => {
           const data = item.data();
 
@@ -65,12 +79,15 @@ export default function Driver() {
 
         setRides(list);
       },
-      (error) => {
+      (error: any) => {
         console.log('rideRequests error:', error);
       }
     );
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      unsubscribeDriver();
+    };
   }, []);
 
   const toggleOnline = async () => {
@@ -79,6 +96,16 @@ export default function Driver() {
 
       if (!user) {
         router.replace('/login');
+        return;
+      }
+
+      if (approvalStatus !== 'approved') {
+        Alert.alert(
+          'حياة كابتن',
+          approvalStatus === 'blocked'
+            ? 'حسابك موقوف. راجع الإدارة.'
+            : 'حسابك بانتظار اعتماد الإدارة.'
+        );
         return;
       }
 
