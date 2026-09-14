@@ -382,15 +382,25 @@ export default function Driver() {
                 style={styles.acceptButton}
                 onPress={async () => {
                   try {
-                    await updateDoc(
-                      doc(getFirestore(), 'rideRequests', ride.id),
-                      {
-                        status: 'completed',
-                        completedAt: new Date(),
-                      }
+                    const db = getFirestore();
+                    const rideRef = doc(db, 'rideRequests', ride.id);
+
+                    await updateDoc(rideRef, {
+                      status: 'completed',
+                      completedAt: new Date(),
+                      finalFare: ride.fareEstimate,
+                    });
+
+                    setCompletedToday((value) => value + 1);
+                    setTotalToday(
+                      (value) => value + ride.fareEstimate
                     );
 
-                    Alert.alert('حياة كابتن', 'تم إنهاء الرحلة');
+                    Alert.alert(
+                      'حياة كابتن',
+                      `تم إنهاء الرحلة
+الأجرة: ${ride.fareEstimate.toFixed(2)} د.أ`
+                    );
                   } catch (error: any) {
                     Alert.alert(
                       'حياة كابتن',
@@ -399,7 +409,7 @@ export default function Driver() {
                   }
                 }}
               >
-                <Text style={styles.acceptText}>إنهاء الرحلة</Text>
+                <Text style={styles.acceptText}>🏁 إنهاء الرحلة</Text>
               </Pressable>
             )}
           </View>
