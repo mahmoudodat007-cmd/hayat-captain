@@ -281,6 +281,13 @@ export default function Driver() {
         <Text style={styles.historyButtonText}>📋 سجل الرحلات</Text>
       </Pressable>
 
+      <Pressable
+        style={styles.accountButton}
+        onPress={() => router.push('/account')}
+      >
+        <Text style={styles.accountButtonText}>👤 حسابي</Text>
+      </Pressable>
+
       <Pressable style={styles.logout} onPress={logout}>
         <Text style={styles.logoutText}>تسجيل الخروج</Text>
       </Pressable>
@@ -382,6 +389,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   historyButtonText: {
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  accountButton: {
+    backgroundColor: '#e3f2fd',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  accountButtonText: {
     fontSize: 17,
     fontWeight: 'bold',
   },
