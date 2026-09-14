@@ -274,6 +274,13 @@ export default function Driver() {
         <Text style={styles.info}>إجمالي الأجرة: {totalToday.toFixed(2)} د.أ</Text>
       </View>
 
+      <Pressable
+        style={styles.historyButton}
+        onPress={() => router.push('/history')}
+      >
+        <Text style={styles.historyButtonText}>📋 سجل الرحلات</Text>
+      </Pressable>
+
       <Pressable style={styles.logout} onPress={logout}>
         <Text style={styles.logoutText}>تسجيل الخروج</Text>
       </Pressable>
@@ -366,6 +373,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 17,
     fontWeight: '700',
+  },
+  historyButton: {
+    backgroundColor: '#e8f5e9',
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  historyButtonText: {
+    fontSize: 17,
+    fontWeight: 'bold',
   },
   logout: {
     marginTop: 35,
