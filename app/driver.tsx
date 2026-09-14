@@ -223,6 +223,14 @@ export default function Driver() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>حياة كابتن</Text>
 
+      <Text style={styles.approvalStatus}>
+        {approvalStatus === 'approved'
+          ? '🟢 الحساب معتمد'
+          : approvalStatus === 'blocked'
+            ? '🔴 الحساب موقوف'
+            : '🟡 بانتظار اعتماد الإدارة'}
+      </Text>
+
       <Text style={styles.status}>
         {online
           ? '🟢 أنت متاح لاستقبال الرحلات'
@@ -367,6 +375,13 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#fff',
   },
+  approvalStatus: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+
   title: {
     fontSize: 32,
     fontWeight: '800',
