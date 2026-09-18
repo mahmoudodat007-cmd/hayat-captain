@@ -14,6 +14,7 @@ import {
   doc,
   onSnapshot,
   setDoc,
+  getDoc,
 } from '@react-native-firebase/firestore';
 import { router } from 'expo-router';
 
@@ -72,8 +73,11 @@ export default function Account() {
     try {
       setSaving(true);
 
+      const driverRef = doc(getFirestore(), 'drivers', user.uid);
+      const existing = await getDoc(driverRef);
+
       await setDoc(
-        doc(getFirestore(), 'drivers', user.uid),
+        driverRef,
         {
           uid: user.uid,
           email: user.email || '',
@@ -83,6 +87,12 @@ export default function Account() {
           carModel: carModel.trim(),
           carColor: carColor.trim(),
           plateNumber: plateNumber.trim(),
+          ...(existing.exists()
+            ? {}
+            : {
+                approvalStatus: 'pending',
+                online: false,
+              }),
           updatedAt: new Date(),
         },
         { merge: true }
