@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import {
@@ -21,6 +22,8 @@ import {
   runTransaction,
 } from '@react-native-firebase/firestore';
 import { router } from 'expo-router';
+import * as Location from 'expo-location';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 type Ride = {
   id: string;
@@ -31,6 +34,10 @@ type Ride = {
   completedAt?: any;
   status: string;
   driverId?: string;
+  riderId?: string;
+  riderName?: string;
+  riderPhone?: string;
+  pickupCoords?: { latitude: number; longitude: number };
 };
 
 export default function Driver() {
@@ -39,6 +46,8 @@ export default function Driver() {
   const [completedToday, setCompletedToday] = useState(0);
   const [totalToday, setTotalToday] = useState(0);
   const [approvalStatus, setApprovalStatus] = useState('pending');
+  const [driverLocation, setDriverLocation] = useState<any>(null);
+  const mapRef = React.useRef<MapView>(null);
 
   useEffect(() => {
     const user = getAuth().currentUser;
@@ -49,6 +58,8 @@ export default function Driver() {
     }
 
     const db = getFirestore();
+
+    let locationSubscription: Location.LocationSubscription | null = null;
 
     const unsubscribeTodayStats = onSnapshot(
       query(
@@ -128,6 +139,7 @@ export default function Driver() {
           ridesMap.set(change.doc.id, {
             id: change.doc.id,
             pickupArea: data.pickupArea || 'غير محدد',
+            pickupCoords: data.pickup || undefined,
             destination: data.destination || 'غير محدد',
             fareEstimate:
               typeof data.fareEstimate === 'number'
@@ -164,6 +176,7 @@ export default function Driver() {
           ridesMap.set(change.doc.id, {
             id: change.doc.id,
             pickupArea: data.pickupArea || 'غير محدد',
+            pickupCoords: data.pickup || undefined,
             destination: data.destination || 'غير محدد',
             fareEstimate:
               typeof data.fareEstimate === 'number'
@@ -277,7 +290,7 @@ export default function Driver() {
       await runTransaction(db, async (transaction: any) => {
         const snapshot = await transaction.get(rideRef);
 
-        if (!snapshot.exists) {
+        if (!snapshot.exists()) {
           throw new Error('الرحلة غير موجودة');
         }
 
@@ -349,6 +362,69 @@ export default function Driver() {
           {online ? 'إيقاف استقبال الرحلات' : 'أنا متاح'}
         </Text>
       </Pressable>
+
+      <View style={styles.mapBox}>
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_GOOGLE}
+          style={styles.map}
+          showsUserLocation={!!driverLocation}
+          initialRegion={{
+            latitude: driverLocation?.latitude ?? 32.5556,
+            longitude: driverLocation?.longitude ?? 35.8500,
+            latitudeDelta: 0.08,
+            longitudeDelta: 0.08,
+          }}
+        >
+          {driverLocation && (
+            <Marker
+              coordinate={driverLocation}
+              title="📍 موقعي"
+            />
+          )}
+
+          {rides
+            .filter((ride) =>
+              ['accepted', 'arriving', 'started'].includes(ride.status)
+            )
+            .map((ride) =>
+              ride.pickupCoords ? (
+                <Marker
+                  key={ride.id}
+                  coordinate={ride.pickupCoords}
+                  title="👤 موقع العميل"
+                />
+              ) : null
+            )}
+        </MapView>
+
+        {rides
+          .filter((ride) =>
+            ['accepted', 'arriving', 'started'].includes(ride.status)
+          )
+          .find((ride) => ride.pickupCoords) && (
+            <Pressable
+              style={styles.customerMapButton}
+              onPress={() => {
+                const ride = rides
+                  .filter((ride) =>
+                    ['accepted', 'arriving', 'started'].includes(ride.status)
+                  )
+                  .find((ride) => ride.pickupCoords);
+
+                if (ride?.pickupCoords) {
+                  mapRef.current?.animateToRegion({
+                    ...ride.pickupCoords,
+                    latitudeDelta: 0.02,
+                    longitudeDelta: 0.02,
+                  }, 800);
+                }
+              }}
+            >
+              <Text style={styles.buttonText}>📍 التوجه للعميل</Text>
+            </Pressable>
+          )}
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>🚕 الرحلات الجديدة</Text>
@@ -425,6 +501,36 @@ export default function Driver() {
               <Text style={styles.fare}>
                 💰 الأجرة: {ride.fareEstimate.toFixed(2)} د.أ
               </Text>
+
+              {ride.riderPhone &&
+                (ride.status === 'accepted' ||
+                  ride.status === 'arriving' ||
+                  ride.status === 'started') && (
+                  <Pressable
+                    style={styles.callButton}
+                    onPress={() =>
+                      Linking.openURL(`tel:${ride.riderPhone}`)
+                    }
+                  >
+                    <Text style={styles.callButtonText}>📞 اتصال بالعميل</Text>
+                  </Pressable>
+                )}
+
+              {(ride.status === 'accepted' ||
+                ride.status === 'arriving' ||
+                ride.status === 'started') && (
+                <Pressable
+                  style={styles.chatButton}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/chat',
+                      params: { rideId: ride.id },
+                    })
+                  }
+                >
+                  <Text style={styles.chatButtonText}>💬 محادثة العميل</Text>
+                </Pressable>
+              )}
 
               {ride.status === 'accepted' && (
                 <Pressable
@@ -583,6 +689,24 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
+  mapBox: {
+    height: 300,
+    marginTop: 20,
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  map: {
+    flex: 1,
+  },
+  customerMapButton: {
+    position: 'absolute',
+    bottom: 15,
+    right: 15,
+    left: 15,
+    backgroundColor: '#111',
+    padding: 14,
+    borderRadius: 12,
+  },
   section: {
     marginTop: 25,
     padding: 18,
@@ -624,6 +748,30 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'right',
     marginVertical: 8,
+  },
+  callButton: {
+    backgroundColor: '#e8f5e9',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  callButtonText: {
+    color: '#2e7d32',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  chatButton: {
+    backgroundColor: '#e8f0fe',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  chatButtonText: {
+    color: '#1967d2',
+    fontSize: 16,
+    fontWeight: '700',
   },
   acceptButton: {
     marginTop: 10,
