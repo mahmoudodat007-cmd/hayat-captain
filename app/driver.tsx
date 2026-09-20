@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import * as Notifications from "expo-notifications";
 import {
   View,
   Text,
@@ -24,6 +25,18 @@ import {
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+
+async function registerForPushNotificationsAsync(): Promise<string | null> {
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  if (finalStatus !== "granted") return null;
+  const token = await Notifications.getExpoPushTokenAsync();
+  return token.data;
+}
 
 type Ride = {
   id: string;
@@ -58,6 +71,15 @@ export default function Driver() {
     }
 
     const db = getFirestore();
+
+  registerForPushNotificationsAsync().then(async (token: string | null) => {
+    if (!token) return;
+    try {
+      await setDoc(doc(db, "drivers", user.uid), { pushToken: token }, { merge: true });
+    } catch (error) {
+      console.log("push token save error:", error);
+    }
+  });
 
     let locationSubscription: Location.LocationSubscription | null = null;
 
