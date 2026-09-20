@@ -158,6 +158,11 @@ export default function Driver() {
             return;
           }
 
+          if (data.status !== 'pending') {
+            ridesMap.delete(change.doc.id);
+            return;
+          }
+
           ridesMap.set(change.doc.id, {
             id: change.doc.id,
             pickupArea: data.pickupArea || 'غير محدد',
@@ -172,7 +177,7 @@ export default function Driver() {
                 ? data.finalFare
                 : undefined,
             completedAt: data.completedAt,
-            status: data.status || 'pending',
+            status: 'pending',
             driverId: data.driverId,
           });
         });
@@ -195,6 +200,13 @@ export default function Driver() {
             return;
           }
 
+          const status = data.status || 'pending';
+
+          if (!['accepted', 'arriving', 'started'].includes(status)) {
+            ridesMap.delete(change.doc.id);
+            return;
+          }
+
           ridesMap.set(change.doc.id, {
             id: change.doc.id,
             pickupArea: data.pickupArea || 'غير محدد',
@@ -209,7 +221,7 @@ export default function Driver() {
                 ? data.finalFare
                 : undefined,
             completedAt: data.completedAt,
-            status: data.status || 'pending',
+            status,
             driverId: data.driverId,
           });
         });
