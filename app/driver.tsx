@@ -502,6 +502,53 @@ export default function Driver() {
                 💰 الأجرة: {ride.fareEstimate.toFixed(2)} د.أ
               </Text>
 
+              {(ride.status === 'accepted' || ride.status === 'arriving') && (
+                <Pressable
+                  style={styles.cancelButton}
+                  onPress={() =>
+                    Alert.alert(
+                      'إلغاء الرحلة',
+                      'هل أنت متأكد من إلغاء الرحلة؟',
+                      [
+                        { text: 'لا', style: 'cancel' },
+                        {
+                          text: 'نعم، إلغاء',
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              await updateDoc(
+                                doc(getFirestore(), 'rideRequests', ride.id),
+                                {
+                                  status: 'pending',
+                                  driverId: null,
+                                  driverName: null,
+                                  driverPhone: null,
+                                  carType: null,
+                                  carModel: null,
+                                  carColor: null,
+                                  plateNumber: null,
+                                  cancelledBy: 'driver',
+                                  cancelledAt: new Date(),
+                                }
+                              );
+
+                              Alert.alert('حياة كابتن', 'تم إلغاء الرحلة وإعادتها للطلبات المتاحة');
+                            } catch (error: any) {
+                              Alert.alert(
+                                'حياة كابتن',
+                                error?.message || 'تعذر إلغاء الرحلة'
+                              );
+                            }
+                          },
+                        },
+                      ]
+                    )
+                  }
+                >
+                  <Text style={styles.cancelButtonText}>❌ إلغاء الرحلة</Text>
+                </Pressable>
+              )}
+
               {ride.riderPhone &&
                 (ride.status === 'accepted' ||
                   ride.status === 'arriving' ||
@@ -748,6 +795,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'right',
     marginVertical: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#ffebee',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#c62828',
+    fontSize: 16,
+    fontWeight: '700',
   },
   callButton: {
     backgroundColor: '#e8f5e9',
