@@ -7,10 +7,19 @@
     "scheme": "hayatcaptain",
     "userInterfaceStyle": "light",
     "android": {
-      "package": "jo.hayat.captain"
+      "package": "jo.hayat.captain",
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-notifications",
+      "@react-native-firebase/app",
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyCPKiVugX6IaSQ4-pmB5zLQJ6O1AyhiwZg"
+        }
+      ]
     ]
   }
 }
