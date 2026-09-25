@@ -679,11 +679,6 @@ export default function Driver() {
                         finalFare: ride.fareEstimate,
                       });
 
-                      setCompletedToday((value) => value + 1);
-                      setTotalToday(
-                        (value) => value + ride.fareEstimate
-                      );
-
                       Alert.alert(
                         'حياة كابتن',
                         `تم إنهاء الرحلة\nالأجرة: ${ride.fareEstimate.toFixed(2)} د.أ`
