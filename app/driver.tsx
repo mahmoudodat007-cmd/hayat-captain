@@ -60,6 +60,25 @@ export default function Driver() {
   const [totalToday, setTotalToday] = useState(0);
   const [approvalStatus, setApprovalStatus] = useState('pending');
   const [driverLocation, setDriverLocation] = useState<any>(null);
+  const [requestRadius, setRequestRadius] = useState(1.5);
+
+  const distanceKm = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
   const mapRef = React.useRef<MapView>(null);
 
   useEffect(() => {
@@ -71,6 +90,13 @@ export default function Driver() {
     }
 
     const db = getFirestore();
+
+    onSnapshot(doc(db, 'drivers', user.uid), (snapshot: any) => {
+      const data = snapshot.data();
+      if (typeof data?.requestRadius === 'number') {
+        setRequestRadius(data.requestRadius);
+      }
+    });
 
   registerForPushNotificationsAsync().then(async (token: string | null) => {
     if (!token) return;
@@ -461,6 +487,45 @@ export default function Driver() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📍 نطاق استقبال الطلبات</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {[1, 1.5, 2, 3, 5].map((radius) => (
+            <Pressable
+              key={radius}
+              onPress={async () => {
+                setRequestRadius(radius);
+                const currentUser = getAuth().currentUser;
+                if (!currentUser) return;
+
+                try {
+                  await setDoc(
+                    doc(getFirestore(), 'drivers', currentUser.uid),
+                    { requestRadius: radius },
+                    { merge: true }
+                  );
+                } catch (error) {
+                  console.log('request radius save error:', error);
+                }
+              }}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 10,
+                backgroundColor: requestRadius === radius ? '#111' : '#eee',
+              }}
+            >
+              <Text style={{
+                color: requestRadius === radius ? '#fff' : '#111',
+                fontWeight: '700',
+              }}>
+                {radius} كم
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>🚕 الرحلات الجديدة</Text>
 
         {!online && (
@@ -478,7 +543,43 @@ export default function Driver() {
 
         {online &&
           rides
-            .filter((ride) => ride.status === 'pending')
+            .filter((ride) => {
+              if (ride.status !== 'pending') return false;
+              if (!driverLocation || !ride.pickupCoords) return true;
+
+              const distance = distanceKm(
+                driverLocation.latitude,
+                driverLocation.longitude,
+                ride.pickupCoords.latitude,
+                ride.pickupCoords.longitude
+              );
+
+              return distance <= requestRadius;
+            })
+            .sort((a, b) => {
+              if (!driverLocation) return 0;
+
+              const da = a.pickupCoords
+                ? distanceKm(
+                    driverLocation.latitude,
+                    driverLocation.longitude,
+                    a.pickupCoords.latitude,
+                    a.pickupCoords.longitude
+                  )
+                : Number.MAX_SAFE_INTEGER;
+
+              const db = b.pickupCoords
+                ? distanceKm(
+                    driverLocation.latitude,
+                    driverLocation.longitude,
+                    b.pickupCoords.latitude,
+                    b.pickupCoords.longitude
+                  )
+                : Number.MAX_SAFE_INTEGER;
+
+              return da - db;
+            })
+            .slice(0, 4)
             .map((ride) => (
               <View key={ride.id} style={styles.ride}>
                 <Text style={styles.rideTitle}>طلب رحلة جديد</Text>
