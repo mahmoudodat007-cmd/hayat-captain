@@ -1,19 +1,23 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { getAuth } from '@react-native-firebase/auth';
 import { router } from 'expo-router';
 
 export default function Home() {
+  useEffect(() => {
+    const user = getAuth().currentUser;
+
+    if (user) {
+      router.replace('/driver');
+    } else {
+      router.replace('/login');
+    }
+  }, []);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>حياة كابتن</Text>
-      <Text style={styles.subtitle}>تطبيق كابتن حياة</Text>
-
-      <Pressable
-        style={styles.button}
-        onPress={() => router.push('/login')}
-      >
-        <Text style={styles.buttonText}>تسجيل دخول الكابتن</Text>
-      </Pressable>
+      <Text style={styles.subtitle}>جاري التحقق من تسجيل الدخول...</Text>
     </View>
   );
 }
@@ -33,18 +37,5 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 18,
-    marginBottom: 40,
-  },
-  button: {
-    width: '100%',
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#111',
-  },
-  buttonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '700',
   },
 });
