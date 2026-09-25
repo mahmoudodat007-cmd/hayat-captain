@@ -109,6 +109,39 @@ export default function Driver() {
 
     let locationSubscription: Location.LocationSubscription | null = null;
 
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status !== 'granted') {
+          console.log('location permission denied');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const coords = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+
+        setDriverLocation(coords);
+
+        await setDoc(
+          doc(db, 'drivers', user.uid),
+          {
+            location: coords,
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.log('driver location error:', error);
+      }
+    })();
+
     const unsubscribeTodayStats = onSnapshot(
       query(
         collection(db, 'rideRequests'),
@@ -535,9 +568,22 @@ export default function Driver() {
         )}
 
         {online &&
-          rides.filter((ride) => ride.status === 'pending').length === 0 && (
+          rides
+            .filter((ride) => {
+              if (ride.status !== 'pending') return false;
+              if (!driverLocation || !ride.pickupCoords) return false;
+
+              const distance = distanceKm(
+                driverLocation.latitude,
+                driverLocation.longitude,
+                ride.pickupCoords.latitude,
+                ride.pickupCoords.longitude
+              );
+
+              return distance <= requestRadius;
+            }).length === 0 && (
             <Text style={styles.empty}>
-              لا توجد رحلات جديدة حاليًا
+              لا توجد رحلات جديدة ضمن النطاق المحدد
             </Text>
           )}
 
