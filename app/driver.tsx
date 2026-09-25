@@ -137,6 +137,34 @@ export default function Driver() {
           },
           { merge: true }
         );
+
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            distanceInterval: 100,
+          },
+          async (update) => {
+            const nextCoords = {
+              latitude: update.coords.latitude,
+              longitude: update.coords.longitude,
+            };
+
+            setDriverLocation(nextCoords);
+
+            try {
+              await setDoc(
+                doc(db, 'drivers', user.uid),
+                {
+                  location: nextCoords,
+                  updatedAt: new Date(),
+                },
+                { merge: true }
+              );
+            } catch (error) {
+              console.log('driver location update error:', error);
+            }
+          }
+        );
       } catch (error) {
         console.log('driver location error:', error);
       }
